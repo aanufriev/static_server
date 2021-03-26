@@ -43,6 +43,8 @@ fn handle_connection(mut stream: TcpStream, mut document_root: String) {
     let request = str::from_utf8(&buffer).expect("couldn't convert to string");
     let request = decode(request).expect("couldn't decode request");
 
+    let doc_root = document_root.clone();
+
     let (mut status, mut filename) = if request.starts_with(GET) || request.starts_with(HEAD) {
         let slash_idx = request.find("/").unwrap();
         let http_idx = request.find("HTTP").unwrap();
@@ -70,10 +72,20 @@ fn handle_connection(mut stream: TcpStream, mut document_root: String) {
         return
     }
 
-    let exists = std::path::Path::new(&filename).exists();
-    if !exists {
+    let path = std::path::Path::new(&filename);
+    if !path.exists() || !path.canonicalize().unwrap().to_str().unwrap().contains(&doc_root) {
+        println!("filename {} not found", filename);
         status = NOT_FOUND_STATUS;
-        filename = format!("{}", "404.html")
+
+        let response = format!(
+            "{}\r\nServer: Rust Server\r\nDate: {}\r\nConnection: close\r\n\r\n",
+            status,
+            Utc::now().to_rfc2822(),
+        );
+
+        stream.write(response.as_bytes()).expect("couldn't write to client");
+        stream.flush().expect("couldn't flush stream");
+        return
     }
 
     let mut contents = Vec::new();
