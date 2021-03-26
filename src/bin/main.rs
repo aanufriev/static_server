@@ -15,16 +15,18 @@ const NOT_FOUND_STATUS: &str = "HTTP/1.1 404 Not Found";
 const NOT_ALLOWED_STATUS: &str = "HTTP/1.1 405 Method Not Allowed";
 
 fn main() {
-    let config = read().expect("could't read config");
-    println!("{},{}", config.thread_limit, config.document_root);
+    let mut config = read().expect("could't read config");
+    println!("thread limit: {}\ndocument root: {}", config.thread_limit, config.document_root);
+    if config.document_root.chars().last().unwrap() != '/' {
+        config.document_root.push_str("/");
+    }
 
     let listener = TcpListener::bind("0.0.0.0:80").expect("couldnt't bind");
-    println!("started at 7878");
+    println!("started at port 80");
     let pool = ThreadPool::new(config.thread_limit);
     println!("started thread pool");
 
     for stream in listener.incoming() {
-        println!("stream");
         let stream = stream.expect("couldnt't unwrap TcpStream");
 
         let doc_root = config.document_root.clone();
@@ -39,9 +41,7 @@ fn handle_connection(mut stream: TcpStream, mut document_root: String) {
     stream.read(&mut buffer).expect("couldnt't read from buffer");
 
     let request = str::from_utf8(&buffer).expect("couldn't convert to string");
-    println!("before: {}", request);
     let request = decode(request).expect("couldn't decode request");
-    println!("after: {}", request);
 
     let (mut status, mut filename) = if request.starts_with(GET) || request.starts_with(HEAD) {
         let slash_idx = request.find("/").unwrap();
@@ -57,8 +57,6 @@ fn handle_connection(mut stream: TcpStream, mut document_root: String) {
     } else {
         (NOT_ALLOWED_STATUS, format!("{}", "405.html"))
     };
-
-    println!("filename: {}", filename);
 
     if status == NOT_ALLOWED_STATUS {
         let response = format!(
@@ -82,11 +80,10 @@ fn handle_connection(mut stream: TcpStream, mut document_root: String) {
     let file = File::open(&filename).expect("couldn't open file");
 
     if file.metadata().expect("couldn't get metadata").file_type().is_dir() {
-        let last_symbol = filename.chars().last().unwrap();
-        if last_symbol == '/' {
+        if filename.chars().last().unwrap() == '/' {
             filename.push_str("index.html")
         } else {
-            filename.push_str("index.html")
+            filename.push_str("/index.html")
         }
     }
 
