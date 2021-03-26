@@ -88,7 +88,6 @@ fn handle_connection(mut stream: TcpStream, mut document_root: String) {
         return
     }
 
-    let mut contents = Vec::new();
     let file = File::open(&filename).expect("couldn't open file");
 
     if file.metadata().expect("couldn't get metadata").file_type().is_dir() {
@@ -109,6 +108,8 @@ fn handle_connection(mut stream: TcpStream, mut document_root: String) {
     let mimetype = get_mimetype(&filename_clone);
 
     let mut file = File::open(&filename).expect("couldn't open file");
+
+    let mut contents = Vec::new();
     file.read_to_end(&mut contents).expect("couldn't read from file");
 
     let response = format!(
